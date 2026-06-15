@@ -1,0 +1,38 @@
+# ===== Datos en tiempo de ejecución (NO se versionan) =====
+# Se regeneran solos al levantar los contenedores.
+
+# Pi-hole
+*/pihole/etc-pihole/
+*/pihole/etc-dnsmasq.d/
+
+# Nginx Proxy Manager
+*/npm/data/
+*/npm/letsencrypt/
+
+# Correo (Mailu): datos, colas, certs, filtros
+*/mail/data/
+*/mail/mail/
+*/mail/mailqueue/
+*/mail/filter/
+*/mail/redis/
+*/mail/webmail/
+*/mail/certs/
+*/mail/dkim/
+*/mail/overrides/
+
+# Syncthing (config con IDs propios de cada máquina)
+*/sync/config/
+
+# Grabaciones VoIP
+*/voip/recordings/*
+!*/voip/recordings/.gitkeep
+
+# Volúmenes / temporales del sistema
+*.log
+*.pid
+.DS_Store
+
+# ===== SÍ se versionan (para que el Nodo B replique al instante) =====
+# docker-compose*.yml, .env, mailu.env, config/, scripts/
+# NOTA: en un entorno REAL las contraseñas irían en .env.example.
+# Aquí se versionan porque la red está 100% aislada (laboratorio).

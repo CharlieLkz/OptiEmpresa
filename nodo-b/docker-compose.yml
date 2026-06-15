@@ -1,0 +1,120 @@
+# ============================================================
+#  NODO B (ESPEJO / ESCLAVO)  -  VM Ubuntu sobre Windows
+#  IP 10.0.0.20  -  Dominio primario: empresa.Opticom
+#  MariaDB en modo RÉPLICA DE SOLO LECTURA del Nodo A.
+# ============================================================
+
+name: red-espejo-nodo-b
+
+networks:
+  red_corp:
+    external: true
+
+volumes:
+  portainer_data:
+  mariadb_slave_data:
+  freepbx_data:
+  freepbx_db:
+
+services:
+
+  portainer:
+    image: portainer/portainer-ce:latest
+    container_name: portainer
+    restart: unless-stopped
+    networks: [red_corp]
+    ports:
+      - "9443:9443"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - portainer_data:/data
+
+  pihole:
+    image: pihole/pihole:latest
+    container_name: pihole
+    restart: unless-stopped
+    networks: [red_corp]
+    ports:
+      - "53:53/tcp"
+      - "53:53/udp"
+      - "8053:80/tcp"
+    environment:
+      TZ: "America/Mexico_City"
+      FTLCONF_webserver_api_password: "${PIHOLE_PASSWORD}"
+      FTLCONF_dns_listeningMode: "all"
+      FTLCONF_dns_upstreams: "127.0.0.1"
+    volumes:
+      - ./pihole/etc-pihole:/etc/pihole
+    cap_add:
+      - NET_ADMIN
+
+  npm:
+    image: jc21/nginx-proxy-manager:latest
+    container_name: npm
+    restart: unless-stopped
+    networks: [red_corp]
+    ports:
+      - "80:80"
+      - "443:443"
+      - "81:81"
+    volumes:
+      - ./npm/data:/data
+      - ./npm/letsencrypt:/etc/letsencrypt
+
+  # ---------- BASE DE DATOS ESCLAVO (solo lectura) ----------
+  mariadb-slave:
+    image: mariadb:11.4
+    container_name: mariadb-slave
+    restart: unless-stopped
+    networks: [red_corp]
+    ports:
+      - "3306:3306"
+    environment:
+      MARIADB_ROOT_PASSWORD: "${DB_ROOT_PASSWORD}"
+    volumes:
+      - mariadb_slave_data:/var/lib/mysql
+      - ./config/mariadb/slave.cnf:/etc/mysql/mariadb.conf.d/99-slave.cnf:ro
+
+  phpmyadmin:
+    image: phpmyadmin:latest
+    container_name: phpmyadmin
+    restart: unless-stopped
+    networks: [red_corp]
+    environment:
+      PMA_HOST: mariadb-slave      # <-- apunta al esclavo local
+      PMA_PORT: 3306
+      UPLOAD_LIMIT: 64M
+
+  freepbx:
+    image: tiredofit/freepbx:latest
+    container_name: freepbx
+    restart: unless-stopped
+    networks: [red_corp]
+    ports:
+      - "5060:5060/udp"
+      - "5160:5160/udp"
+      - "18000-18100:18000-18100/udp"
+    environment:
+      TZ: "America/Mexico_City"
+      RTP_START: "18000"
+      RTP_FINISH: "18100"
+    volumes:
+      - freepbx_data:/data
+      - freepbx_db:/var/lib/mysql
+      - ./voip/recordings:/data/usr/var/spool/asterisk/monitor
+
+  syncthing:
+    image: syncthing/syncthing:latest
+    container_name: syncthing
+    hostname: nodo-b
+    restart: unless-stopped
+    networks: [red_corp]
+    ports:
+      - "8384:8384"
+      - "22000:22000/tcp"
+      - "22000:22000/udp"
+      - "21027:21027/udp"
+    volumes:
+      - ./sync/config:/var/syncthing/config
+      - ./mail:/sync/mail
+      - ./voip/recordings:/sync/voip

@@ -1,0 +1,129 @@
+# ============================================================
+#  CORREO ELECTRÓNICO  -  MAILU (Nodo A)
+#  Arrancar con:
+#    docker compose -f docker-compose.mail.yml up -d
+#  Incluye panel admin (/admin) y webmail Roundcube (/)
+#  Proxy vía NPM:  correo.empresa.ComSoc -> front:80
+# ============================================================
+
+name: mailu-nodo-a
+
+networks:
+  red_corp:
+    external: true          # para que NPM alcance a "front"
+  mailu_default:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 192.168.203.0/24
+
+services:
+
+  redis:
+    image: redis:alpine
+    container_name: mailu-redis
+    restart: unless-stopped
+    volumes:
+      - "./mail/redis:/data"
+    networks:
+      - mailu_default
+
+  front:
+    image: ghcr.io/mailu/nginx:2024.06
+    container_name: mailu-front
+    restart: unless-stopped
+    env_file: mailu.env
+    ports:
+      # Puertos de PROTOCOLO de correo (NO son HTTP, van directos al host):
+      - "25:25"      # SMTP
+      - "465:465"    # SMTPS
+      - "587:587"    # Submission
+      - "110:110"    # POP3
+      - "995:995"    # POP3S
+      - "143:143"    # IMAP
+      - "993:993"    # IMAPS
+      - "4190:4190"  # Sieve
+      # El puerto 80/443 web NO se publica: lo sirve NPM.
+    volumes:
+      - "./mail/certs:/certs"
+      - "./mail/overrides/nginx:/overrides:ro"
+    networks:
+      - mailu_default
+      - red_corp          # NPM -> http://mailu-front:80
+
+  resolver:
+    image: ghcr.io/mailu/unbound:2024.06
+    container_name: mailu-resolver
+    restart: unless-stopped
+    env_file: mailu.env
+    networks:
+      mailu_default:
+        ipv4_address: 192.168.203.254
+
+  admin:
+    image: ghcr.io/mailu/admin:2024.06
+    container_name: mailu-admin
+    restart: unless-stopped
+    env_file: mailu.env
+    volumes:
+      - "./mail/data:/data"
+      - "./mail/dkim:/dkim"
+    depends_on:
+      - redis
+      - resolver
+    networks:
+      - mailu_default
+
+  imap:
+    image: ghcr.io/mailu/dovecot:2024.06
+    container_name: mailu-imap
+    restart: unless-stopped
+    env_file: mailu.env
+    volumes:
+      - "./mail/mail:/mail"         # <-- ESTO es lo que sincroniza Syncthing
+      - "./mail/overrides/dovecot:/overrides:ro"
+    depends_on:
+      - front
+      - resolver
+    networks:
+      - mailu_default
+
+  smtp:
+    image: ghcr.io/mailu/postfix:2024.06
+    container_name: mailu-smtp
+    restart: unless-stopped
+    env_file: mailu.env
+    volumes:
+      - "./mail/mailqueue:/queue"
+      - "./mail/overrides/postfix:/overrides:ro"
+    depends_on:
+      - front
+      - resolver
+    networks:
+      - mailu_default
+
+  antispam:
+    image: ghcr.io/mailu/rspamd:2024.06
+    container_name: mailu-antispam
+    restart: unless-stopped
+    env_file: mailu.env
+    volumes:
+      - "./mail/filter:/var/lib/rspamd"
+      - "./mail/overrides/rspamd:/overrides:ro"
+    depends_on:
+      - front
+      - resolver
+    networks:
+      - mailu_default
+
+  webmail:
+    image: ghcr.io/mailu/webmail:2024.06
+    container_name: mailu-webmail
+    restart: unless-stopped
+    env_file: mailu.env
+    volumes:
+      - "./mail/webmail:/data"
+    depends_on:
+      - front
+    networks:
+      - mailu_default

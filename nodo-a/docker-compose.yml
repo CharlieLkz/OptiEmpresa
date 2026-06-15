@@ -1,0 +1,139 @@
+# ============================================================
+#  NODO A (MAESTRO)  -  Ubuntu Nativo  -  IP 10.0.0.10
+#  Dominio primario: empresa.ComSoc
+#  Núcleo: Portainer + Pi-hole + Nginx Proxy Manager +
+#          MariaDB Maestro + phpMyAdmin + FreePBX + Syncthing
+#  (El correo Mailu está en docker-compose.mail.yml)
+# ============================================================
+
+name: red-espejo-nodo-a
+
+# Red compartida entre TODOS los contenedores del nodo.
+# Permite que Nginx Proxy Manager alcance a cada servicio por
+# su nombre de contenedor SIN publicar puertos web al host.
+# Se crea una sola vez con:  docker network create red_corp
+networks:
+  red_corp:
+    external: true
+
+volumes:
+  portainer_data:
+  mariadb_master_data:
+  freepbx_data:
+  freepbx_db:
+
+services:
+
+  # ---------- 1. GESTIÓN VISUAL DE CONTENEDORES ----------
+  portainer:
+    image: portainer/portainer-ce:latest
+    container_name: portainer
+    restart: unless-stopped
+    networks: [red_corp]
+    ports:
+      - "9443:9443"          # https://10.0.0.10:9443
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - portainer_data:/data
+
+  # ---------- 2. DNS LOCAL (registros A de toda la red) ----------
+  pihole:
+    image: pihole/pihole:latest
+    container_name: pihole
+    restart: unless-stopped
+    networks: [red_corp]
+    ports:
+      - "53:53/tcp"          # DNS
+      - "53:53/udp"          # DNS
+      - "8053:80/tcp"        # UI directa: http://10.0.0.10:8053/admin
+    environment:
+      TZ: "America/Mexico_City"
+      FTLCONF_webserver_api_password: "${PIHOLE_PASSWORD}"
+      FTLCONF_dns_listeningMode: "all"
+      # Sin upstream real: red 100% aislada. Resuelve solo lo local.
+      FTLCONF_dns_upstreams: "127.0.0.1"
+    volumes:
+      - ./pihole/etc-pihole:/etc/pihole
+    cap_add:
+      - NET_ADMIN
+
+  # ---------- 3. PROXY INVERSO (subdominios sin puerto) ----------
+  npm:
+    image: jc21/nginx-proxy-manager:latest
+    container_name: npm
+    restart: unless-stopped
+    networks: [red_corp]
+    ports:
+      - "80:80"              # HTTP  -> redirige subdominios
+      - "443:443"            # HTTPS
+      - "81:81"              # Panel admin NPM: http://10.0.0.10:81
+    volumes:
+      - ./npm/data:/data
+      - ./npm/letsencrypt:/etc/letsencrypt
+
+  # ---------- 4. BASE DE DATOS MAESTRO (acepta escrituras) ----------
+  mariadb-master:
+    image: mariadb:11.4
+    container_name: mariadb-master
+    restart: unless-stopped
+    networks: [red_corp]
+    ports:
+      - "3306:3306"          # Expuesto para que el Nodo B (esclavo) replique
+    environment:
+      MARIADB_ROOT_PASSWORD: "${DB_ROOT_PASSWORD}"
+      MARIADB_DATABASE: "${DB_NAME}"
+      MARIADB_USER: "${DB_USER}"
+      MARIADB_PASSWORD: "${DB_PASSWORD}"
+    volumes:
+      - mariadb_master_data:/var/lib/mysql
+      - ./config/mariadb/master.cnf:/etc/mysql/mariadb.conf.d/99-master.cnf:ro
+      - ./config/mariadb/init-master.sql:/docker-entrypoint-initdb.d/init-master.sql:ro
+
+  # ---------- 5. PHPMYADMIN (visualizar la replicación) ----------
+  phpmyadmin:
+    image: phpmyadmin:latest
+    container_name: phpmyadmin
+    restart: unless-stopped
+    networks: [red_corp]
+    environment:
+      PMA_HOST: mariadb-master
+      PMA_PORT: 3306
+      UPLOAD_LIMIT: 64M
+    # Sin "ports": se accede vía NPM -> db.empresa.ComSoc
+
+  # ---------- 6. VOIP (FreePBX / Asterisk) ----------
+  freepbx:
+    image: tiredofit/freepbx:latest
+    container_name: freepbx
+    restart: unless-stopped
+    networks: [red_corp]
+    ports:
+      - "5060:5060/udp"              # SIP (chan_pjsip)
+      - "5160:5160/udp"              # SIP (chan_sip legacy)
+      - "18000-18100:18000-18100/udp" # RTP (audio). Rango reducido a propósito.
+    environment:
+      TZ: "America/Mexico_City"
+      RTP_START: "18000"
+      RTP_FINISH: "18100"
+    volumes:
+      - freepbx_data:/data
+      - freepbx_db:/var/lib/mysql
+      - ./voip/recordings:/data/usr/var/spool/asterisk/monitor
+    # UI web (puerto 80 interno) se publica vía NPM -> pbx.empresa.ComSoc
+
+  # ---------- 7. SINCRONIZACIÓN DE ARCHIVOS (correo + audios) ----------
+  syncthing:
+    image: syncthing/syncthing:latest
+    container_name: syncthing
+    hostname: nodo-a
+    restart: unless-stopped
+    networks: [red_corp]
+    ports:
+      - "8384:8384"          # UI:  http://10.0.0.10:8384
+      - "22000:22000/tcp"    # Transferencia de datos
+      - "22000:22000/udp"    # QUIC
+      - "21027:21027/udp"    # Descubrimiento en LAN
+    volumes:
+      - ./sync/config:/var/syncthing/config
+      - ./mail:/sync/mail          # datos de correo (Mailu)
+      - ./voip/recordings:/sync/voip  # grabaciones VoIP

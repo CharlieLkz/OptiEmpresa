@@ -1,0 +1,17 @@
+[mariadb]
+# Identificador único del servidor en la replicación
+server-id              = 1
+
+# Binlog: registro de cambios que el esclavo "jala"
+log-bin                = mariadb-bin
+log-basename           = mariadb-master
+binlog-format          = ROW
+
+# GTID: simplifica el enganche del esclavo (sin file/pos manual)
+gtid-domain-id         = 1
+
+# Aceptar conexiones desde la red (el esclavo está en otra máquina)
+bind-address           = 0.0.0.0
+
+# Solo replicar la BD de la app (opcional, recomendado)
+binlog-do-db           = empresa_db

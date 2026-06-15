@@ -1,0 +1,11 @@
+[mariadb]
+server-id        = 2
+# Solo lectura: protege la réplica de escrituras accidentales
+read-only        = 1
+log-bin          = mariadb-bin
+log-basename     = mariadb-slave
+binlog-format    = ROW
+gtid-domain-id   = 1
+bind-address     = 0.0.0.0
+# Reaplica el binlog para encadenar más réplicas si hiciera falta
+log-slave-updates = 1

@@ -1,0 +1,28 @@
+==========================================================
+ REGISTROS A LOCALES  (Pi-hole -> Settings -> Local DNS -> DNS Records)
+ Cárgalos en AMBOS Pi-hole (Nodo A y Nodo B) = RED ESPEJO
+==========================================================
+
+# --- Dominio del Nodo A (empresa.ComSoc -> 10.0.0.10) ---
+empresa.ComSoc            10.0.0.10
+correo.empresa.ComSoc     10.0.0.10
+db.empresa.ComSoc         10.0.0.10
+pbx.empresa.ComSoc        10.0.0.10
+dns.empresa.ComSoc        10.0.0.10
+sync.empresa.ComSoc       10.0.0.10
+panel.empresa.ComSoc      10.0.0.10
+
+# --- Dominio del Nodo B (empresa.Opticom -> 10.0.0.20) ---
+empresa.Opticom           10.0.0.20
+correo.empresa.Opticom    10.0.0.20
+db.empresa.Opticom        10.0.0.20
+pbx.empresa.Opticom       10.0.0.20
+dns.empresa.Opticom       10.0.0.20
+sync.empresa.Opticom      10.0.0.20
+panel.empresa.Opticom     10.0.0.20
+
+NOTA DE ALTA DISPONIBILIDAD (clave para la demo):
+Si quieres que al caer el Nodo A los nombres .ComSoc respondan
+desde el Nodo B, en el Pi-hole del Nodo B agrega TAMBIÉN los
+nombres .ComSoc apuntando a 10.0.0.20. Así el "espejo" toma el
+control cuando desconectas el Nodo A.
