@@ -1,0 +1,12 @@
+# IP estática del Nodo A. Copiar a /etc/netplan/ y aplicar.
+# CAMBIA "enp0s3" por el nombre real de tu tarjeta (míralo con: ip a)
+network:
+  version: 2
+  renderer: networkd
+  ethernets:
+    enp0s3:
+      dhcp4: no
+      addresses: [10.0.0.10/24]
+      nameservers:
+        addresses: [10.0.0.10, 10.0.0.20]   # su Pi-hole y el del Nodo B
+      # Sin gateway: red 100% aislada, sin salida a internet.
