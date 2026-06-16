@@ -1,0 +1,8 @@
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name=OptiComSoc
+Comment=Panel de servicios de la red corporativa
+Exec=bash -lc 'cd "$HOME/red-espejo/gui" && ./abrir-gui.sh'
+Terminal=false
+Categories=Network;Utility;

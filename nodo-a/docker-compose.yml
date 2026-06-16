@@ -103,22 +103,21 @@ services:
 
   # ---------- 6. VOIP (FreePBX / Asterisk) ----------
   freepbx:
-    image: tiredofit/freepbx:latest
+    image: flaviostutz/freepbx
     container_name: freepbx
     restart: unless-stopped
     networks: [red_corp]
     ports:
-      - "5060:5060/udp"              # SIP (chan_pjsip)
-      - "5160:5160/udp"              # SIP (chan_sip legacy)
-      - "18000-18100:18000-18100/udp" # RTP (audio). Rango reducido a propósito.
+      - "5060:5060/udp"
+      - "5160:5160/udp"
+      - "18000-18100:18000-18100/udp"
     environment:
-      TZ: "America/Mexico_City"
+      ADMIN_PASSWORD: "Admin.Pbx.2026"
       RTP_START: "18000"
       RTP_FINISH: "18100"
     volumes:
-      - freepbx_data:/data
-      - freepbx_db:/var/lib/mysql
-      - ./voip/recordings:/data/usr/var/spool/asterisk/monitor
+      - freepbx_data:/backup
+      - ./voip/recordings:/var/spool/asterisk/monitor
     # UI web (puerto 80 interno) se publica vía NPM -> pbx.empresa.ComSoc
 
   # ---------- 7. SINCRONIZACIÓN DE ARCHIVOS (correo + audios) ----------

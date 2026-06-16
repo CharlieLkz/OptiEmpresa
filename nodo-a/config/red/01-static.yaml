@@ -1,10 +1,15 @@
 # IP estática del Nodo A. Copiar a /etc/netplan/ y aplicar.
 # CAMBIA "enp0s3" por el nombre real de tu tarjeta (míralo con: ip a)
+#
+# renderer:
+#   - NetworkManager  -> Ubuntu Desktop (laptops, con escritorio)  [por defecto]
+#   - networkd        -> Ubuntu Server (sin escritorio)
+# Si tu equipo es Desktop deja NetworkManager; si es Server, cámbialo a networkd.
 network:
   version: 2
-  renderer: networkd
+  renderer: NetworkManager
   ethernets:
-    enp2s0:
+    enp0s3:
       dhcp4: no
       addresses: [10.0.0.10/24]
       nameservers:

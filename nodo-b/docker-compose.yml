@@ -86,7 +86,7 @@ services:
       UPLOAD_LIMIT: 64M
 
   freepbx:
-    image: tiredofit/freepbx:latest
+    image: flaviostutz/freepbx
     container_name: freepbx
     restart: unless-stopped
     networks: [red_corp]
@@ -95,13 +95,12 @@ services:
       - "5160:5160/udp"
       - "18000-18100:18000-18100/udp"
     environment:
-      TZ: "America/Mexico_City"
+      ADMIN_PASSWORD: "Admin.Pbx.2026"
       RTP_START: "18000"
       RTP_FINISH: "18100"
     volumes:
-      - freepbx_data:/data
-      - freepbx_db:/var/lib/mysql
-      - ./voip/recordings:/data/usr/var/spool/asterisk/monitor
+      - freepbx_data:/backup
+      - ./voip/recordings:/var/spool/asterisk/monitor
 
   syncthing:
     image: syncthing/syncthing:latest

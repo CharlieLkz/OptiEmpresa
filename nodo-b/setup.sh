@@ -19,6 +19,7 @@ if ss -lntu 2>/dev/null | grep -q ':53 '; then
   echo ">> Liberando el puerto 53 (systemd-resolved)..."
   sudo sed -i 's/^#\?DNSStubListener=.*/DNSStubListener=no/' /etc/systemd/resolved.conf
   sudo systemctl restart systemd-resolved
+  sudo ln -sf /run/systemd/resolve/resolv.conf /etc/resolv.conf
 fi
 
 docker network inspect red_corp >/dev/null 2>&1 || docker network create red_corp
